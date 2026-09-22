@@ -4,7 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN dpkg --add-architecture i386
 
-RUN apt update && apt install -y \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     xrdp \
     xfce4 \
     xfce4-goodies \
@@ -20,22 +21,29 @@ RUN apt update && apt install -y \
     pulseaudio-utils \
     wine \
     wine32 \
-    firefox-esr && \
-    apt clean && rm -rf /var/lib/apt/lists/*
+    firefox-esr \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set root password
 RUN echo "root:root" | chpasswd
 
-RUN sed -i 's/^allowed_users=.*/allowed_users=anybody/' /etc/X11/Xwrapper.config || echo "allowed_users=anybody" >> /etc/X11/Xwrapper.config
+RUN if [ -f /etc/X11/Xwrapper.config ]; then \
+        sed -i 's/^allowed_users=.*/allowed_users=anybody/' /etc/X11/Xwrapper.config; \
+    else \
+        echo "allowed_users=anybody" > /etc/X11/Xwrapper.config; \
+    fi
 
-RUN echo "startxfce4" > /root/.xsession && chmod 700 /root/.xsession
+RUN echo "startxfce4" > /root/.xsession && \
+    chmod 700 /root/.xsession
 
-# Generate machine-id for dbus
-RUN mkdir -p /var/run/dbus && dbus-uuidgen > /var/lib/dbus/machine-id
+RUN mkdir -p /var/run/dbus /var/lib/dbus && \
+    dbus-uuidgen > /etc/machine-id && \
+    ln -sf /etc/machine-id /var/lib/dbus/machine-id
 
-RUN sed -i 's/crypt_level=high/crypt_level=low/' /etc/xrdp/xrdp.ini && \
-    sed -i 's/security_layer=negotiate/security_layer=rdp/' /etc/xrdp/xrdp.ini && \
-    echo "exec startxfce4" > /etc/xrdp/startwm.sh && chmod +x /etc/xrdp/startwm.sh
+RUN sed -i 's/^crypt_level=.*/crypt_level=low/' /etc/xrdp/xrdp.ini && \
+    sed -i 's/^security_layer=.*/security_layer=rdp/' /etc/xrdp/xrdp.ini && \
+    printf '#!/bin/sh\nexec startxfce4\n' > /etc/xrdp/startwm.sh && \
+    chmod +x /etc/xrdp/startwm.sh
 
 RUN adduser xrdp ssl-cert
 
